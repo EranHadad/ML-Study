@@ -107,6 +107,7 @@ class GradientDescent:
 
     def printlog(self):
         decimal_places = 3
+        print('\nGradient Descent Performance:')
         print(self.log.round(decimal_places))
 
     def plotlog(self):
@@ -114,6 +115,69 @@ class GradientDescent:
         ii = np.arange(nepochs)
         fig, (ax1, ax2, ax3) = plt.subplots(1, 3, sharex=True)
         fig.suptitle('Gradient Descent Performance', fontsize=20)
+        ax1.set_facecolor('black')
+        ax1.plot(ii, self.log.loc[:, 'loss'])
+        ax1.set_xlabel('Iterations', fontsize=16)
+        ax1.set_title('Loss', fontsize=16)
+        ax1.grid()
+        ax2.set_facecolor('black')
+        ax2.plot(ii, self.log.loc[:, 'weight'])
+        ax2.set_xlabel('Iterations', fontsize=16)
+        ax2.set_title('Weight', fontsize=16)
+        ax2.grid()
+        ax3.set_facecolor('black')
+        ax3.plot(ii[1:], self.log.loc[1:, 'step'])
+        ax3.set_xlabel('Iterations', fontsize=16)
+        ax3.set_title('Step', fontsize=16)
+        ax3.grid()
+        plt.show(block=False)
+
+
+class Momentum:
+    def __init__(self, lossfunc, learnrate, weight, minstep=0.001, maxiterations=100, momentcoeff=0.9):
+        self.lossfunc = lossfunc
+        self.learnrate = learnrate
+        self.minstep = minstep
+        self.momentcoeff = momentcoeff
+        self.last_dl = 0
+        self.weight = weight
+        self.maxiterations = maxiterations
+        self.iteration = 0
+        self.step = 1000
+        columns_names = ['loss', 'step', 'weight']
+        self.log = pd.DataFrame(data=np.zeros([maxiterations+1, len(columns_names)]), columns=columns_names)
+        self.log.index.name = 'iteration'
+
+    def __next(self):
+        dl = self.lossfunc.dfunc.compute(self.weight)
+        self.last_dl = dl  # save derivative value for next iteration
+        self.step = -self.learnrate * (dl + self.momentcoeff * self.last_dl)
+        self.weight += self.step
+
+    def run(self):
+        self.__update_log()
+        while abs(self.step) > self.minstep and self.iteration < self.maxiterations:
+            self.iteration += 1
+            self.__next()
+            self.__update_log()
+        # delete empty lines from log
+        self.log.drop(self.log.tail(self.maxiterations-self.iteration).index, inplace=True)
+
+    def __update_log(self):
+        self.log.loc[self.iteration, 'loss'] = self.lossfunc.func.compute(self.weight)
+        self.log.loc[self.iteration, 'step'] = self.step
+        self.log.loc[self.iteration, 'weight'] = self.weight
+
+    def printlog(self):
+        decimal_places = 3
+        print('\nMomentum Performance:')
+        print(self.log.round(decimal_places))
+
+    def plotlog(self):
+        nepochs = self.log.shape[0]
+        ii = np.arange(nepochs)
+        fig, (ax1, ax2, ax3) = plt.subplots(1, 3, sharex=True)
+        fig.suptitle('Momentum Performance', fontsize=20)
         ax1.set_facecolor('black')
         ax1.plot(ii, self.log.loc[:, 'loss'])
         ax1.set_xlabel('Iterations', fontsize=16)
