@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 
 # script parameters
 losscoeffs = [50, 4, -6, 0, 1]
-display_loss_function = True
+display_loss_function = False
 run_gradient_descent = True
 # -------------------------------------------
 
@@ -29,6 +29,7 @@ grad = GradientDescent(lossfunc=lossfunc, learnrate=learn_rate, weight=initial_w
 if run_gradient_descent:
     grad.run()
     grad.printlog()
+    grad.plotlog()
 
 # show all plots if exist
 plt.show(block=True)

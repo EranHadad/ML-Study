@@ -108,3 +108,25 @@ class GradientDescent:
     def printlog(self):
         decimal_places = 3
         print(self.log.round(decimal_places))
+
+    def plotlog(self):
+        nepochs = self.log.shape[0]
+        ii = np.arange(nepochs)
+        fig, (ax1, ax2, ax3) = plt.subplots(1, 3, sharex=True)
+        fig.suptitle('Gradient Descent Performance', fontsize=20)
+        ax1.set_facecolor('black')
+        ax1.plot(ii, self.log.loc[:, 'loss'])
+        ax1.set_xlabel('Iterations', fontsize=16)
+        ax1.set_title('Loss', fontsize=16)
+        ax1.grid()
+        ax2.set_facecolor('black')
+        ax2.plot(ii, self.log.loc[:, 'weight'])
+        ax2.set_xlabel('Iterations', fontsize=16)
+        ax2.set_title('Weight', fontsize=16)
+        ax2.grid()
+        ax3.set_facecolor('black')
+        ax3.plot(ii[1:], self.log.loc[1:, 'step'])
+        ax3.set_xlabel('Iterations', fontsize=16)
+        ax3.set_title('Step', fontsize=16)
+        ax3.grid()
+        plt.show(block=False)
