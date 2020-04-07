@@ -4,9 +4,11 @@ import matplotlib.pyplot as plt
 
 # script parameters
 losscoeffs = [50, 4, -6, 0, 1]
-display_loss_function = False
-run_gradient_descent = True
-run_momentum = True
+display_loss_function = True
+display_graphs = True
+run_gradient_descent = False
+run_momentum = False
+run_Adam = True
 # -------------------------------------------
 
 # define loss function
@@ -19,12 +21,12 @@ if display_loss_function:
     lossfunc.display(x)
 
 # define optimization algorithm
-learn_rate = 0.05
-initial_weight = 0.7
+initial_weight = 3
 min_step = 0.001  # early stop
 max_iterations = 100
 
 # create gradient descent object
+learn_rate = 0.05
 grad = GradientDescent(lossfunc=lossfunc, learnrate=learn_rate, weight=initial_weight,
                        minstep=min_step, maxiterations=max_iterations)
 
@@ -32,9 +34,11 @@ grad = GradientDescent(lossfunc=lossfunc, learnrate=learn_rate, weight=initial_w
 if run_gradient_descent:
     grad.run()
     grad.printlog()
-    grad.plotlog()
+    if display_graphs:
+        grad.plotlog()
 
 # create momentum object
+learn_rate = 0.05
 momentum_coeff = 0.9
 moment = Momentum(lossfunc=lossfunc, learnrate=learn_rate, weight=initial_weight,
                   minstep=min_step, maxiterations=max_iterations, momentcoeff=momentum_coeff)
@@ -43,7 +47,20 @@ moment = Momentum(lossfunc=lossfunc, learnrate=learn_rate, weight=initial_weight
 if run_momentum:
     moment.run()
     moment.printlog()
-    moment.plotlog()
+    if display_graphs:
+        moment.plotlog()
+
+# create Adam object
+learn_rate = 1
+beta = 0.9
+adam = Adam(lossfunc=lossfunc, learnrate=learn_rate, weight=initial_weight, minstep=min_step,
+            maxiterations=max_iterations, momentcoeff=momentum_coeff, beta=beta)
+
+if run_Adam:
+    adam.run()
+    adam.printlog()
+    if display_graphs:
+        adam.plotlog()
 
 # show all plots if exist
 plt.show(block=True)
