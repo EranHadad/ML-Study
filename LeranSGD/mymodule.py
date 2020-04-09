@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import math
 
 
 class Poly:
@@ -87,8 +88,8 @@ class GradientDescent:
         self.log.index.name = 'iteration'
 
     def __next(self):
-        dl = self.lossfunc.dfunc.compute(self.weight)
-        self.step = -self.learnrate * dl
+        self.diffloss = self.lossfunc.dfunc.compute(self.weight)
+        self.step = -self.learnrate * self.diffloss
         self.weight += self.step
 
     def run(self):
@@ -107,4 +108,150 @@ class GradientDescent:
 
     def printlog(self):
         decimal_places = 3
+        print('\nGradient Descent Performance:')
         print(self.log.round(decimal_places))
+
+    def plotlog(self):
+        nepochs = self.log.shape[0]
+        ii = np.arange(nepochs)
+        fig, (ax1, ax2) = plt.subplots(1, 2, sharex=True)
+        fig.suptitle('Gradient Descent Performance', fontsize=20)
+        ax1.set_facecolor('black')
+        ax1.plot(ii, self.log.loc[:, 'loss'])
+        ax1.set_xlabel('Iterations', fontsize=16)
+        ax1.set_title('Loss', fontsize=16)
+        ax1.grid()
+        ax2.set_facecolor('black')
+        ax2.plot(ii, self.log.loc[:, 'weight'])
+        ax2.set_xlabel('Iterations', fontsize=16)
+        ax2.set_title('Weight', fontsize=16)
+        ax2.grid()
+        plt.show(block=False)
+
+
+class Momentum:
+    def __init__(self, lossfunc, learnrate, weight, minstep=0.001, maxiterations=100, momentcoeff=0.9):
+        self.lossfunc = lossfunc
+        self.learnrate = learnrate
+        self.minstep = minstep
+        self.momentcoeff = momentcoeff
+        self.last_dl = 0
+        self.weight = weight
+        self.maxiterations = maxiterations
+        self.iteration = 0
+        self.step = 1000
+        columns_names = ['loss', 'step', 'weight']
+        self.log = pd.DataFrame(data=np.zeros([maxiterations+1, len(columns_names)]), columns=columns_names)
+        self.log.index.name = 'iteration'
+
+    def __next(self):
+        self.diffloss = self.lossfunc.dfunc.compute(self.weight)
+        self.last_dl = self.diffloss  # save derivative value for next iteration
+        self.step = -self.learnrate * (self.diffloss + self.momentcoeff * self.last_dl)
+        self.weight += self.step
+
+    def run(self):
+        self.__update_log()
+        while abs(self.step) > self.minstep and self.iteration < self.maxiterations:
+            self.iteration += 1
+            self.__next()
+            self.__update_log()
+        # delete empty lines from log
+        self.log.drop(self.log.tail(self.maxiterations-self.iteration).index, inplace=True)
+
+    def __update_log(self):
+        self.log.loc[self.iteration, 'loss'] = self.lossfunc.func.compute(self.weight)
+        self.log.loc[self.iteration, 'step'] = self.step
+        self.log.loc[self.iteration, 'weight'] = self.weight
+
+    def printlog(self):
+        decimal_places = 3
+        print('\nMomentum Performance:')
+        print(self.log.round(decimal_places))
+
+    def plotlog(self):
+        nepochs = self.log.shape[0]
+        ii = np.arange(nepochs)
+        fig, (ax1, ax2) = plt.subplots(1, 2, sharex=True)
+        fig.suptitle('Momentum Performance', fontsize=20)
+        ax1.set_facecolor('black')
+        ax1.plot(ii, self.log.loc[:, 'loss'])
+        ax1.set_xlabel('Iterations', fontsize=16)
+        ax1.set_title('Loss', fontsize=16)
+        ax1.grid()
+        ax2.set_facecolor('black')
+        ax2.plot(ii, self.log.loc[:, 'weight'])
+        ax2.set_xlabel('Iterations', fontsize=16)
+        ax2.set_title('Weight', fontsize=16)
+        ax2.grid()
+        plt.show(block=False)
+
+
+class Adam:
+    def __init__(self, lossfunc, learnrate, weight, minstep=0.001, maxiterations=100, momentcoeff=0.9, beta=0.9):
+        self.lossfunc = lossfunc
+        self.learnrate = learnrate
+        self.minstep = minstep
+        self.momentcoeff = momentcoeff
+        self.beta = beta
+        self.weight = weight
+        self.maxiterations = maxiterations
+        self.moment_state = 0
+        self.G_state = 0
+        self.iteration = 0
+        self.diffloss = 0
+        self.step = 1000
+        columns_names = ['loss', 'step', 'weight', 'diffloss', 'moment', 'G_term']
+        self.log = pd.DataFrame(data=np.zeros([maxiterations+1, len(columns_names)]), columns=columns_names)
+        self.log.index.name = 'iteration'
+
+    def __next(self):
+        self.diffloss = self.lossfunc.dfunc.compute(self.weight)
+        self.moment_state = self.momentcoeff * self.moment_state + (1-self.momentcoeff) * self.diffloss
+        self.G_state = self.beta * self.G_state + (1 - self.beta) * self.diffloss**2
+        self.step = -self.learnrate * self.moment_state / (math.sqrt(self.G_state)+1e-10)
+        self.weight += self.step
+
+    def run(self):
+        self.__update_log()
+        while abs(self.step) > self.minstep and self.iteration < self.maxiterations:
+            self.iteration += 1
+            self.__next()
+            self.__update_log()
+        # delete empty lines from log
+        self.log.drop(self.log.tail(self.maxiterations-self.iteration).index, inplace=True)
+
+    def __update_log(self):
+        self.log.loc[self.iteration, 'loss'] = self.lossfunc.func.compute(self.weight)
+        self.log.loc[self.iteration, 'step'] = self.step
+        self.log.loc[self.iteration, 'weight'] = self.weight
+        self.log.loc[self.iteration, 'diffloss'] = self.diffloss
+        self.log.loc[self.iteration, 'moment'] = self.moment_state
+        self.log.loc[self.iteration, 'G_term'] = self.G_state
+
+    def printlog(self):
+        decimal_places = 3
+        print('\nAdam Performance:')
+        print(self.log.round(decimal_places))
+
+    def plotlog(self):
+        nepochs = self.log.shape[0]
+        ii = np.arange(nepochs)
+        fig, (ax1, ax2) = plt.subplots(1, 2, sharex=True)
+        fig.suptitle('Adam Performance', fontsize=20)
+        ax1.set_facecolor('black')
+        ax1.plot(ii[1:], self.log.loc[1:, 'diffloss'], label='derivative')
+        ax1.plot(ii[1:], self.log.loc[1:, 'moment'], label='moment')
+        vsqrt = np.vectorize(math.sqrt)
+        ax1.plot(ii[1:], vsqrt(self.log.loc[1:, 'G_term']), label='rms')
+        ax1.set_xlabel('Iterations', fontsize=16)
+        ax1.legend(fontsize=16)
+        ax1.grid()
+
+        ax2.set_facecolor('black')
+        ax2.plot(ii[1:], self.log.loc[1:, 'step'])
+        ax2.set_xlabel('Iterations', fontsize=16)
+        ax2.set_title('Step', fontsize=16)
+        ax2.grid()
+
+        plt.show(block=False)
