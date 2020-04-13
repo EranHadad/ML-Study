@@ -1,17 +1,48 @@
 import numpy as np
 import mytensorflow as mytf
+import matplotlib.pyplot as plt
 
-inputs = np.random.uniform(low=-10, high=10, size=(1000, 2))  # temp
-targets = np.random.uniform(low=-10, high=10, size=(1000, 2))  # temp
+# =========================
+# define inputs and outputs
+# =========================
 
+nsamples = 1000
+
+x1 = np.random.uniform(low=-10, high=10, size=(nsamples, 1))  # temp
+x2 = np.random.uniform(low=-10, high=10, size=(nsamples, 1))  # temp
+inputs = np.column_stack([x1, x2])  # temp
+
+y1 = 2 * x1 - 3 * x2 + 5
+y2 = np.zeros([nsamples, 1])
+targets = np.column_stack([y1, y2])
+
+# ===================
+# construct the model
+# ===================
 model = mytf.Model([
-    mytf.Layer(noutputs=3, init_range=0.1),
     mytf.Layer(noutputs=2, init_range=0.1)
+    # mytf.Layer(noutputs=3, init_range=0.1),
+    # mytf.Layer(noutputs=2, init_range=0.1)
 ])
 
+# ===============
+# train the model
+# ===============
 model.fit(x=inputs, y=targets, batch_size=100)
 
 print(model.layers[0].weights)
+print(model.layers[-1].outputs[:10, :])
+
+# ===============
+# make prediction
+# ===============
+outputs = model.predict(inputs)
+
+# We print the outputs and the targets in order to see if they have a linear relationship.
+plt.scatter(outputs[:, 0], y1)
+plt.xlabel('outputs')
+plt.ylabel('targets')
+plt.show()
 
 '''
 input_size = 2

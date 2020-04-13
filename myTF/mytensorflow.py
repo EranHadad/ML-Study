@@ -8,7 +8,15 @@ class Layer:
         self.init_range = init_range
         self.weights = None  # dimensions=(ninputs, noutputs) will determine on model fit
         self.biases = np.random.uniform(low=-init_range, high=init_range, size=(1, noutputs))
+        self.outputs = None
+        self.errors = None
         # print('Class Layer was instantiated with {nout} outputs'.format(nout=noutputs))
+
+    def process_outputs(self, x):
+        if x.shape[1] != self.ninputs:
+            print('error in process_outputs(): can not perform dot product due to shape mismathch')
+        self.outputs = np.dot(x, self.weights) + self.biases
+        self.outputs = 1/(1+np.exp(-self.outputs))
 
 
 # sequential model with L2-norm loss function and gradient-descent optimizer
@@ -21,11 +29,12 @@ class Model:
         self.nsamples = None
         self.batch_size = None
         self.nbatches = None
+        self.learning_rate = None
 
-    def fit(self, x=None, y=None, epochs=1, batch_size=None):
+    def fit(self, x=None, y=None, epochs=1, batch_size=None, learning_rate=0.01):
 
         # initialize net
-        self.__init_model(x, y, batch_size)
+        self.__init_model(x, y, batch_size, learning_rate)
 
         # perform the fit
         for epoch in range(epochs):
@@ -34,15 +43,18 @@ class Model:
                 nlast = (batch_index+1) * self.batch_size
                 inputs = x[nfrom:nlast, :]
                 targets = y[nfrom:nlast, :]
-                self.__forward_propagate(inputs, targets)  # also compute errors
+                self.__forward_propagate(inputs)  # compute outputs foreach layer
+                self.__back_propagate(targets)  # compute errors for each layer
+                self.__update_coefficients(inputs)
 
-        # for each epoch
-        #   for each batch
-        #       self.__forward_propagate()
-        #       self.__back_propagate()
-        #   print results (optionaly: save results to log)
+    def predict(self, x=None):
+        self.__forward_propagate(x)
+        return self.layers[-1].outputs
 
-    def __init_model(self, x, y, batch_size):
+    def __init_model(self, x, y, batch_size, learning_rate):
+
+        self.learning_rate = learning_rate
+
         self.ninputs = x.shape[1]
 
         if self.noutputs != y.shape[1]:
@@ -67,7 +79,7 @@ class Model:
             if i == 0:
                 layer.ninputs = self.ninputs
             else:
-                layer.ninputs = self.layers[i - 1].noutputs
+                layer.ninputs = self.layers[i-1].noutputs
 
             print('layer {index}: {nin} inputs -> {nout} outputs'.format(index=i,
                                                                          nin=layer.ninputs,
@@ -76,3 +88,30 @@ class Model:
                                               high=layer.init_range,
                                               size=(layer.ninputs, layer.noutputs))
 
+    def __forward_propagate(self, x):
+        for i, layer in enumerate(self.layers):
+            if i == 0:
+                layer.process_outputs(x)
+            else:
+                layer.process_outputs(self.layers[i-1].outputs)
+
+    def __back_propagate(self, targets):
+        for i in reversed(range(self.nlayers)):
+            y = self.layers[i].outputs
+            diff_activation = np.multiply(y, 1 - y)
+            if i == (self.nlayers-1):
+                self.layers[i].errors = y - targets
+            else:
+                self.layers[i].errors = np.dot(self.layers[i+1].errors, self.layers[i+1].weights.transpose())
+            self.layers[i].errors = np.multiply(self.layers[i].errors, diff_activation)
+
+    def __update_coefficients(self, x):
+        for i, layer in enumerate(self.layers):
+            if i == 0:
+                inputs = x
+            else:
+                inputs = self.layers[i-1].outputs
+            dloss_dw = (1/self.batch_size) * np.dot(inputs.transpose(), layer.errors)  # same dimensions as the weights coefficients
+            layer.weights -= self.learning_rate * dloss_dw
+            dloss_dbias = np.mean(layer.errors, axis=0)
+            layer.biases -= self.learning_rate * dloss_dbias
