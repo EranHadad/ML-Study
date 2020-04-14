@@ -2,8 +2,9 @@ import numpy as np
 
 
 class Layer:
-    def __init__(self, noutputs=None, init_range=0.1):
+    def __init__(self, noutputs=None, activation=None, init_range=0.1):
         self.noutputs = noutputs
+        self.activation = activation
         self.ninputs = None
         self.init_range = init_range
         self.weights = None  # dimensions=(ninputs, noutputs) will determine on model fit
@@ -16,7 +17,14 @@ class Layer:
         if x.shape[1] != self.ninputs:
             print('error in process_outputs(): can not perform dot product due to shape mismathch')
         self.outputs = np.dot(x, self.weights) + self.biases
-        self.outputs = 1/(1+np.exp(-self.outputs))
+        if self.activation == 'logistic':
+            self.outputs = 1/(1+np.exp(-self.outputs))
+
+    def diff_activation(self):
+        if self.activation == 'logistic':
+            return np.multiply(self.outputs, 1 - self.outputs)
+        else:
+            return 1
 
 
 # sequential model with L2-norm loss function and gradient-descent optimizer
@@ -98,12 +106,12 @@ class Model:
     def __back_propagate(self, targets):
         for i in reversed(range(self.nlayers)):
             y = self.layers[i].outputs
-            diff_activation = np.multiply(y, 1 - y)
+            # diff_activation = 1  # diff_activation = np.multiply(y, 1 - y)
             if i == (self.nlayers-1):
                 self.layers[i].errors = y - targets
             else:
                 self.layers[i].errors = np.dot(self.layers[i+1].errors, self.layers[i+1].weights.transpose())
-            self.layers[i].errors = np.multiply(self.layers[i].errors, diff_activation)
+            self.layers[i].errors = np.multiply(self.layers[i].errors, self.layers[i].diff_activation())
 
     def __update_coefficients(self, x):
         for i, layer in enumerate(self.layers):
@@ -111,7 +119,7 @@ class Model:
                 inputs = x
             else:
                 inputs = self.layers[i-1].outputs
-            dloss_dw = (1/self.batch_size) * np.dot(inputs.transpose(), layer.errors)  # same dimensions as the weights coefficients
+            dloss_dw = (1/self.batch_size) * np.dot(inputs.transpose(), layer.errors)
             layer.weights -= self.learning_rate * dloss_dw
             dloss_dbias = np.mean(layer.errors, axis=0)
             layer.biases -= self.learning_rate * dloss_dbias

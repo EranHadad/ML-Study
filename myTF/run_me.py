@@ -7,42 +7,49 @@ import matplotlib.pyplot as plt
 # =========================
 
 nsamples = 1000
+input_range = 10
+noise_range = 1
 
-x1 = np.random.uniform(low=-10, high=10, size=(nsamples, 1))  # temp
-x2 = np.random.uniform(low=-10, high=10, size=(nsamples, 1))  # temp
-inputs = np.column_stack([x1, x2])  # temp
+x1 = np.random.uniform(low=-input_range, high=input_range, size=(nsamples, 1))
+x2 = np.random.uniform(low=-input_range, high=input_range, size=(nsamples, 1))
 
-y1 = 2 * x1 - 3 * x2 + 5
-y2 = np.zeros([nsamples, 1])
-targets = np.column_stack([y1, y2])
+generated_inputs = np.column_stack([x1, x2])
+
+noise = np.random.uniform(low=-noise_range, high=noise_range, size=(nsamples, 1))
+
+generated_targets = 2 * x1 - 3 * x2 + 5 + noise
+
+np.savez('TF_intro', inputs=generated_inputs, targets=generated_targets)
 
 # ===================
 # construct the model
 # ===================
 model = mytf.Model([
-    mytf.Layer(noutputs=2, init_range=0.1)
-    # mytf.Layer(noutputs=3, init_range=0.1),
-    # mytf.Layer(noutputs=2, init_range=0.1)
+    mytf.Layer(noutputs=1, init_range=0.1)  # activation='logistic'
 ])
 
 # ===============
 # train the model
 # ===============
-model.fit(x=inputs, y=targets, batch_size=100)
+training_data = np.load('TF_intro.npz')
 
-print(model.layers[0].weights)
-print(model.layers[-1].outputs[:10, :])
+model.fit(x=training_data['inputs'], y=training_data['targets'], epochs=100, learning_rate=0.02)  # batch_size=100,
+
+# print(model.layers[0].weights)
+# print(model.layers[-1].outputs[:10, :])
 
 # ===============
 # make prediction
 # ===============
-outputs = model.predict(inputs)
+outputs = model.predict(training_data['inputs'])
 
 # We print the outputs and the targets in order to see if they have a linear relationship.
-plt.scatter(outputs[:, 0], y1)
+plt.scatter(outputs, training_data['targets'])
 plt.xlabel('outputs')
 plt.ylabel('targets')
 plt.show()
+
+# TO DO: compare to tensor flow output
 
 '''
 input_size = 2
