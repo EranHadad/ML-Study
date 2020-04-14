@@ -38,6 +38,7 @@ class Model:
         self.batch_size = None
         self.nbatches = None
         self.learning_rate = None
+        self.loss = None
 
     def fit(self, x=None, y=None, epochs=1, batch_size=None, learning_rate=0.01):
 
@@ -46,6 +47,9 @@ class Model:
 
         # perform the fit
         for epoch in range(epochs):
+            
+            self.loss = 0
+
             for batch_index in range(self.nbatches):
                 nfrom = batch_index * self.batch_size
                 nlast = (batch_index+1) * self.batch_size
@@ -54,6 +58,9 @@ class Model:
                 self.__forward_propagate(inputs)  # compute outputs foreach layer
                 self.__back_propagate(targets)  # compute errors for each layer
                 self.__update_coefficients(inputs)
+
+            # print current epoch data (epoch number, loss function..)
+            print('Epoch {ind:d}/{total:d} - loss: {loss:.4f}'.format(ind=epoch+1, total=epochs, loss=self.loss))
 
     def predict(self, x=None):
         self.__forward_propagate(x)
@@ -105,10 +112,9 @@ class Model:
 
     def __back_propagate(self, targets):
         for i in reversed(range(self.nlayers)):
-            y = self.layers[i].outputs
-            # diff_activation = 1  # diff_activation = np.multiply(y, 1 - y)
             if i == (self.nlayers-1):
-                self.layers[i].errors = y - targets
+                self.layers[i].errors = self.layers[i].outputs - targets
+                self.loss += np.sum(self.layers[i].errors ** 2) / 2 / self.batch_size  # also update the loss value
             else:
                 self.layers[i].errors = np.dot(self.layers[i+1].errors, self.layers[i+1].weights.transpose())
             self.layers[i].errors = np.multiply(self.layers[i].errors, self.layers[i].diff_activation())
