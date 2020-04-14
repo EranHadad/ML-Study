@@ -1,3 +1,10 @@
 /LeranSGD/.idea/
 /LeranSGD/__pycache__
 /LeranSGD/learn_pandas.py
+
+/LearnTensorFlow/.idea/
+/LearnTensorFlow/__pycache__
+
+/myTF/.idea/
+/myTF/__pycache__
+/myTF/TF_intro.npz
