@@ -1,10 +1,38 @@
 import numpy as np
 
 
+# implemention for activation function of f(x)=x
+class Activation:
+    @staticmethod
+    def derivative(y):
+        return 1
+
+    @staticmethod
+    def activate(x):
+        return x
+
+
+# implemention for logistic activation function y = f(x) = 1/(1+exp(-x))
+# f'(x) = f(x) * (1-f(x)) = y * (1-y)
+class Logistic(Activation):
+    @staticmethod
+    def derivative(y):
+        return np.multiply(y, 1-y)
+        # y = f(x) - activation output computed with x as an input
+        # derivative(x) = activate(x) * (1-activate(x))
+
+    @staticmethod
+    def activate(x):
+        return 1 / (1 + np.exp(-x))
+
+
 class Layer:
     def __init__(self, noutputs=None, activation=None, init_range=0.1):
         self.noutputs = noutputs
-        self.activation = activation
+        if activation == 'logistic':
+            self.activation = Logistic()
+        else:
+            self.activation = Activation()
         self.ninputs = None
         self.init_range = init_range
         self.weights = None  # dimensions=(ninputs, noutputs) will determine on model fit
@@ -17,14 +45,7 @@ class Layer:
         if x.shape[1] != self.ninputs:
             print('error in process_outputs(): can not perform dot product due to shape mismathch')
         self.outputs = np.dot(x, self.weights) + self.biases
-        if self.activation == 'logistic':
-            self.outputs = 1/(1+np.exp(-self.outputs))
-
-    def diff_activation(self):
-        if self.activation == 'logistic':
-            return np.multiply(self.outputs, 1 - self.outputs)
-        else:
-            return 1
+        self.outputs = self.activation.activate(self.outputs)
 
 
 # sequential model with L2-norm loss function and gradient-descent optimizer
@@ -112,12 +133,13 @@ class Model:
 
     def __back_propagate(self, targets):
         for i in reversed(range(self.nlayers)):
+            y = self.layers[i].outputs
             if i == (self.nlayers-1):
-                self.layers[i].errors = self.layers[i].outputs - targets
+                self.layers[i].errors = y - targets
                 self.loss += np.sum(self.layers[i].errors ** 2) / 2 / self.batch_size  # also update the loss value
             else:
                 self.layers[i].errors = np.dot(self.layers[i+1].errors, self.layers[i+1].weights.transpose())
-            self.layers[i].errors = np.multiply(self.layers[i].errors, self.layers[i].diff_activation())
+            self.layers[i].errors = np.multiply(self.layers[i].errors, self.layers[i].activation.derivative(y))
 
     def __update_coefficients(self, x):
         for i, layer in enumerate(self.layers):

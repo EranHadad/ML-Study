@@ -33,7 +33,7 @@ model = mytf.Model([
 # ===============
 training_data = np.load('TF_intro.npz')
 
-model.fit(x=training_data['inputs'], y=training_data['targets'], epochs=10, batch_size=100, learning_rate=0.02)
+model.fit(x=training_data['inputs'], y=training_data['targets'], epochs=20, batch_size=100, learning_rate=0.02)
 
 # print(model.layers[0].weights)
 # print(model.layers[-1].outputs[:10, :])
