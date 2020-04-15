@@ -55,16 +55,21 @@ class Model:
         self.nlayers = len(layers_list)
         self.noutputs = layers_list[self.nlayers - 1].noutputs
         self.ninputs = None
-        self.nsamples = None
+        # self.nsamples = None
         self.batch_size = None
         self.nbatches = None
         self.learning_rate = None
         self.loss = None
+        self.ntraining = None
+        self.nvalidation = None
 
-    def fit(self, x=None, y=None, epochs=1, batch_size=None, learning_rate=0.01):
+    def fit(self, x=None, y=None, epochs=1, batch_size=None, learning_rate=0.01, validation_split=0.0):
+
+        # pre-processing
+        x_training, y_training, x_validation, y_validation = self.__preprocess(x, y, validation_split, batch_size)
 
         # initialize net
-        self.__init_model(x, y, batch_size, learning_rate)
+        self.__init_model(learning_rate)
 
         # perform the fit
         for epoch in range(epochs):
@@ -74,23 +79,18 @@ class Model:
             for batch_index in range(self.nbatches):
                 nfrom = batch_index * self.batch_size
                 nlast = (batch_index+1) * self.batch_size
-                inputs = x[nfrom:nlast, :]
-                targets = y[nfrom:nlast, :]
+                inputs = x_training[nfrom:nlast, :]
+                targets = y_training[nfrom:nlast, :]
                 self.__forward_propagate(inputs)  # compute outputs foreach layer
                 self.__back_propagate(targets)  # compute errors for each layer
                 self.__update_coefficients(inputs)
 
+            # compute validation loss
+
             # print current epoch data (epoch number, loss function..)
             print('Epoch {ind:d}/{total:d} - loss: {loss:.4f}'.format(ind=epoch+1, total=epochs, loss=self.loss))
 
-    def predict(self, x=None):
-        self.__forward_propagate(x)
-        return self.layers[-1].outputs
-
-    def __init_model(self, x, y, batch_size, learning_rate):
-
-        self.learning_rate = learning_rate
-
+    def __preprocess(self, x, y, validation_split, batch_size):
         self.ninputs = x.shape[1]
 
         if self.noutputs != y.shape[1]:
@@ -103,12 +103,31 @@ class Model:
             print('targets vector y and inputs vector have different number of samples')
             exit(1)
 
-        if not batch_size or batch_size > self.nsamples:
-            self.batch_size = self.nsamples
+        if validation_split < 0.0 or validation_split >= 1:
+            print('validation_split argument not in range [0,1)')
+            exit(1)
+
+        # split (x,y) into validation and training data
+        indices = np.random.permutation(self.nsamples)
+        self.ntraining = int((1 - validation_split) * self.nsamples)
+        self.nvalidation = self.nsamples - self.ntraining
+        training_idx, validation_idx = indices[:self.ntraining], indices[self.ntraining:]
+        x_training, y_training = x[training_idx, :], y[training_idx, :]
+        x_validation, y_validation = x[validation_idx, :], y[validation_idx, :]
+
+        if not batch_size or batch_size > self.ntraining:
+            self.batch_size = self.ntraining
         else:
             self.batch_size = batch_size
-        self.nbatches = int(self.nsamples / self.batch_size)
+        self.nbatches = int(self.ntraining / self.batch_size)
+        print('training set: {tsize:d}, validation set: {vsize:d}'.format(tsize=self.ntraining, vsize=self.nvalidation))
         print('batch size = {batchsize:d}'.format(batchsize=self.batch_size))
+
+        return x_training, y_training, x_validation, y_validation
+
+    def __init_model(self, learning_rate):
+
+        self.learning_rate = learning_rate
 
         for i, layer in enumerate(self.layers):
 
@@ -151,3 +170,7 @@ class Model:
             layer.weights -= self.learning_rate * dloss_dw
             dloss_dbias = np.mean(layer.errors, axis=0)
             layer.biases -= self.learning_rate * dloss_dbias
+
+    def predict(self, x=None):
+        self.__forward_propagate(x)
+        return self.layers[-1].outputs
