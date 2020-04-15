@@ -55,21 +55,22 @@ class Model:
         self.nlayers = len(layers_list)
         self.noutputs = layers_list[self.nlayers - 1].noutputs
         self.ninputs = None
-        # self.nsamples = None
         self.batch_size = None
         self.nbatches = None
         self.learning_rate = None
         self.loss = None
         self.ntraining = None
         self.nvalidation = None
+        self.val_loss = None
+        self.early_stopping = False
 
-    def fit(self, x=None, y=None, epochs=1, batch_size=None, learning_rate=0.01, validation_split=0.0):
+    def fit(self, x=None, y=None, epochs=1, batch_size=None, learning_rate=0.01, validation_split=0.0, early_stopping=False):
 
         # pre-processing
         x_training, y_training, x_validation, y_validation = self.__preprocess(x, y, validation_split, batch_size)
 
         # initialize net
-        self.__init_model(learning_rate)
+        self.__init_model(learning_rate, early_stopping)
 
         # perform the fit
         for epoch in range(epochs):
@@ -85,10 +86,21 @@ class Model:
                 self.__back_propagate(targets)  # compute errors for each layer
                 self.__update_coefficients(inputs)
 
-            # compute validation loss
+            info_str = 'Epoch {ind:d}/{total:d} - training loss: {loss:.4f}'.format(ind=epoch + 1, total=epochs, loss=self.loss)
 
-            # print current epoch data (epoch number, loss function..)
-            print('Epoch {ind:d}/{total:d} - loss: {loss:.4f}'.format(ind=epoch+1, total=epochs, loss=self.loss))
+            # compute validation loss
+            if self.nvalidation > 0:
+                self.__forward_propagate(x_validation)
+                errors = self.layers[-1].outputs - y_validation
+                val_loss = np.sum(errors ** 2) / 2 / self.nvalidation
+                info_str += ' - validation loss: {loss:.4f}'.format(loss=val_loss)
+
+            print(info_str)
+
+            if self.early_stopping:
+                if self.val_loss and val_loss > self.val_loss:
+                    break
+                self.val_loss = val_loss
 
     def __preprocess(self, x, y, validation_split, batch_size):
         self.ninputs = x.shape[1]
@@ -125,9 +137,15 @@ class Model:
 
         return x_training, y_training, x_validation, y_validation
 
-    def __init_model(self, learning_rate):
+    def __init_model(self, learning_rate, early_stopping):
 
         self.learning_rate = learning_rate
+
+        if not self.nvalidation and early_stopping:
+            print('validation_split must be greater than zero for applying early_stopping')
+            self.early_stopping = False
+        else:
+            self.early_stopping = early_stopping
 
         for i, layer in enumerate(self.layers):
 
