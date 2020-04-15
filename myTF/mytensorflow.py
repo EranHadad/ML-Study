@@ -1,6 +1,14 @@
 import numpy as np
 
 
+class GradientDescent:
+    def __init__(self, learning_rate):
+        self.learning_rate = learning_rate
+
+    def next(self, w, dl_dw):
+        return w - self.learning_rate * dl_dw
+
+
 # implemention for activation function of f(x)=x
 class Activation:
     @staticmethod
@@ -57,14 +65,16 @@ class Model:
         self.ninputs = None
         self.batch_size = None
         self.nbatches = None
-        self.learning_rate = None
+        self.learning_rate = 0.01
         self.loss = None
         self.ntraining = None
         self.nvalidation = None
         self.val_loss = None
         self.early_stopping = False
+        self.optimizer = None
 
-    def fit(self, x=None, y=None, epochs=1, batch_size=None, learning_rate=0.01, validation_split=0.0, early_stopping=False):
+    def fit(self, x=None, y=None, epochs=1, batch_size=None, learning_rate=0.01,
+            validation_split=0.0, early_stopping=False):
 
         # pre-processing
         x_training, y_training, x_validation, y_validation = self.__preprocess(x, y, validation_split, batch_size)
@@ -139,7 +149,9 @@ class Model:
 
     def __init_model(self, learning_rate, early_stopping):
 
-        self.learning_rate = learning_rate
+        # self.learning_rate = learning_rate
+
+        self.optimizer = GradientDescent(learning_rate)
 
         if not self.nvalidation and early_stopping:
             print('validation_split must be greater than zero for applying early_stopping')
@@ -185,9 +197,9 @@ class Model:
             else:
                 inputs = self.layers[i-1].outputs
             dloss_dw = (1/self.batch_size) * np.dot(inputs.transpose(), layer.errors)
-            layer.weights -= self.learning_rate * dloss_dw
+            layer.weights = self.optimizer.next(layer.weights, dloss_dw)
             dloss_dbias = np.mean(layer.errors, axis=0)
-            layer.biases -= self.learning_rate * dloss_dbias
+            layer.biases = self.optimizer.next(layer.biases, dloss_dbias)
 
     def predict(self, x=None):
         self.__forward_propagate(x)
