@@ -5,8 +5,30 @@ class GradientDescent:
     def __init__(self, learning_rate):
         self.learning_rate = learning_rate
 
-    def next(self, w, dl_dw):
-        return w - self.learning_rate * dl_dw
+    def compute_step(self, dl_dw, dl_db):
+        return -self.learning_rate * dl_dw, -self.learning_rate * dl_db
+
+
+class Adam:
+    def __init__(self, ninputs, noutputs, learning_rate=1.0, moment_coeff=0.9, rms_coeff=0.9):
+        self.learning_rate = learning_rate
+        self.moment_coeff = moment_coeff
+        self.rms_coeff = rms_coeff
+        self.weights_moment = np.zeros(shape=(ninputs, noutputs), dtype=float)
+        self.weights_mean_square = np.zeros(shape=(ninputs, noutputs), dtype=float)
+        self.biases_moment = np.zeros(shape=(1, noutputs), dtype=float)
+        self.biases_mean_square = np.zeros(shape=(1, noutputs), dtype=float)
+
+    def compute_step(self, dl_dw, dl_db):
+        self.weights_moment = self.moment_coeff * self.weights_moment + (1 - self.moment_coeff) * dl_dw
+        self.weights_mean_square = self.rms_coeff * self.weights_mean_square + (1 - self.rms_coeff) * dl_dw ** 2
+        weights_update = -self.learning_rate * self.weights_moment / (np.sqrt(self.weights_mean_square) + 1e-10)
+
+        self.biases_moment = self.moment_coeff * self.biases_moment + (1 - self.moment_coeff) * dl_db
+        self.biases_mean_square = self.rms_coeff * self.biases_mean_square + (1 - self.rms_coeff) * dl_db ** 2
+        biases_update = -self.learning_rate * self.biases_moment / (np.sqrt(self.biases_mean_square) + 1e-10)
+
+        return weights_update, biases_update
 
 
 # implemention for activation function of f(x)=x
@@ -73,14 +95,14 @@ class Model:
         self.early_stopping = False
         self.optimizer = None
 
-    def fit(self, x=None, y=None, epochs=1, batch_size=None, learning_rate=0.01,
+    def fit(self, x=None, y=None, epochs=1, batch_size=None, optimizer='adam', learning_rate=1.0,
             validation_split=0.0, early_stopping=False):
 
         # pre-processing
         x_training, y_training, x_validation, y_validation = self.__preprocess(x, y, validation_split, batch_size)
 
         # initialize net
-        self.__init_model(learning_rate, early_stopping)
+        self.__init_model(optimizer, learning_rate, early_stopping)
 
         # perform the fit
         for epoch in range(epochs):
@@ -147,11 +169,7 @@ class Model:
 
         return x_training, y_training, x_validation, y_validation
 
-    def __init_model(self, learning_rate, early_stopping):
-
-        # self.learning_rate = learning_rate
-
-        self.optimizer = GradientDescent(learning_rate)
+    def __init_model(self, optimizer, learning_rate, early_stopping):
 
         if not self.nvalidation and early_stopping:
             print('validation_split must be greater than zero for applying early_stopping')
@@ -172,6 +190,11 @@ class Model:
             layer.weights = np.random.uniform(low=-layer.init_range,
                                               high=layer.init_range,
                                               size=(layer.ninputs, layer.noutputs))
+
+            if optimizer.lower() == 'sgd':
+                layer.optimizer = GradientDescent(learning_rate)
+            else:
+                layer.optimizer = Adam(layer.ninputs, layer.noutputs, learning_rate=learning_rate)  # default
 
     def __forward_propagate(self, x):
         for i, layer in enumerate(self.layers):
@@ -197,9 +220,10 @@ class Model:
             else:
                 inputs = self.layers[i-1].outputs
             dloss_dw = (1/self.batch_size) * np.dot(inputs.transpose(), layer.errors)
-            layer.weights = self.optimizer.next(layer.weights, dloss_dw)
             dloss_dbias = np.mean(layer.errors, axis=0)
-            layer.biases = self.optimizer.next(layer.biases, dloss_dbias)
+            weights_update, biases_update = layer.optimizer.compute_step(dloss_dw, dloss_dbias)
+            layer.weights += weights_update
+            layer.biases += biases_update
 
     def predict(self, x=None):
         self.__forward_propagate(x)
