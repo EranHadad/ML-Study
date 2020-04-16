@@ -66,7 +66,7 @@ class Layer:
         self.ninputs = None
         self.init_range = init_range
         self.weights = None  # dimensions=(ninputs, noutputs) will determine on model fit
-        self.biases = np.random.uniform(low=-init_range, high=init_range, size=(1, noutputs))
+        self.biases = np.zeros(shape=(1, self.noutputs), dtype=float)
         self.outputs = None
         self.errors = None
         # print('Class Layer was instantiated with {nout} outputs'.format(nout=noutputs))
@@ -76,6 +76,14 @@ class Layer:
             print('error in process_outputs(): can not perform dot product due to shape mismathch')
         self.outputs = np.dot(x, self.weights) + self.biases
         self.outputs = self.activation.activate(self.outputs)
+
+    def glorot_uniform_initializer(self):
+        x = np.sqrt(6/(self.ninputs + self.noutputs))
+        self.weights = np.random.uniform(low=-x, high=x, size=(self.ninputs, self.noutputs))
+
+    def glorot_normal_initializer(self):
+        std = np.sqrt(2 / (self.ninputs + self.noutputs))
+        self.weights = np.random.normal(loc=0, scale=std, size=(self.ninputs, self.noutputs))
 
 
 # sequential model with L2-norm loss function and gradient-descent optimizer
@@ -96,13 +104,13 @@ class Model:
         self.optimizer = None
 
     def fit(self, x=None, y=None, epochs=1, batch_size=None, optimizer='adam', learning_rate=1.0,
-            validation_split=0.0, early_stopping=False):
+            validation_split=0.0, early_stopping=False, initializer='uniform'):
 
         # pre-processing
         x_training, y_training, x_validation, y_validation = self.__preprocess(x, y, validation_split, batch_size)
 
         # initialize net
-        self.__init_model(optimizer, learning_rate, early_stopping)
+        self.__init_model(optimizer, learning_rate, early_stopping, initializer)
 
         # perform the fit
         for epoch in range(epochs):
@@ -118,8 +126,8 @@ class Model:
                 self.__back_propagate(targets)  # compute errors for each layer
                 self.__update_coefficients(inputs)
 
-            info_str = 'Epoch {ind:d}/{total:d} - training loss: {loss:.4f}'.format(ind=epoch + 1, total=epochs, loss=self.loss)
-
+            info_str = 'Epoch {ind:d}/{total:d} - training loss: {loss:.4f}'.format(ind=epoch + 1, total=epochs,
+                                                                                    loss=self.loss)
             # compute validation loss
             if self.nvalidation > 0:
                 self.__forward_propagate(x_validation)
@@ -169,7 +177,7 @@ class Model:
 
         return x_training, y_training, x_validation, y_validation
 
-    def __init_model(self, optimizer, learning_rate, early_stopping):
+    def __init_model(self, optimizer, learning_rate, early_stopping, initializer):
 
         if not self.nvalidation and early_stopping:
             print('validation_split must be greater than zero for applying early_stopping')
@@ -187,14 +195,15 @@ class Model:
             print('layer {index}: {nin} inputs -> {nout} outputs'.format(index=i,
                                                                          nin=layer.ninputs,
                                                                          nout=layer.noutputs))
-            layer.weights = np.random.uniform(low=-layer.init_range,
-                                              high=layer.init_range,
-                                              size=(layer.ninputs, layer.noutputs))
+            if initializer.lower() == 'normal':
+                layer.glorot_normal_initializer()
+            else:
+                layer.glorot_uniform_initializer()  # default initializer
 
             if optimizer.lower() == 'sgd':
                 layer.optimizer = GradientDescent(learning_rate)
             else:
-                layer.optimizer = Adam(layer.ninputs, layer.noutputs, learning_rate=learning_rate)  # default
+                layer.optimizer = Adam(layer.ninputs, layer.noutputs, learning_rate=learning_rate)  # default optimizer
 
     def __forward_propagate(self, x):
         for i, layer in enumerate(self.layers):
