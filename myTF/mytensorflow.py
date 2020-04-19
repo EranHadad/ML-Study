@@ -1,6 +1,36 @@
 import numpy as np
 
 
+class GradientDescent:
+    def __init__(self, learning_rate):
+        self.learning_rate = learning_rate
+
+    def compute_step(self, dl_dw, dl_db):
+        return -self.learning_rate * dl_dw, -self.learning_rate * dl_db
+
+
+class Adam:
+    def __init__(self, ninputs, noutputs, learning_rate=1.0, moment_coeff=0.9, rms_coeff=0.9):
+        self.learning_rate = learning_rate
+        self.moment_coeff = moment_coeff
+        self.rms_coeff = rms_coeff
+        self.weights_moment = np.zeros(shape=(ninputs, noutputs), dtype=float)
+        self.weights_mean_square = np.zeros(shape=(ninputs, noutputs), dtype=float)
+        self.biases_moment = np.zeros(shape=(1, noutputs), dtype=float)
+        self.biases_mean_square = np.zeros(shape=(1, noutputs), dtype=float)
+
+    def compute_step(self, dl_dw, dl_db):
+        self.weights_moment = self.moment_coeff * self.weights_moment + (1 - self.moment_coeff) * dl_dw
+        self.weights_mean_square = self.rms_coeff * self.weights_mean_square + (1 - self.rms_coeff) * dl_dw ** 2
+        weights_update = -self.learning_rate * self.weights_moment / (np.sqrt(self.weights_mean_square) + 1e-10)
+
+        self.biases_moment = self.moment_coeff * self.biases_moment + (1 - self.moment_coeff) * dl_db
+        self.biases_mean_square = self.rms_coeff * self.biases_mean_square + (1 - self.rms_coeff) * dl_db ** 2
+        biases_update = -self.learning_rate * self.biases_moment / (np.sqrt(self.biases_mean_square) + 1e-10)
+
+        return weights_update, biases_update
+
+
 # implemention for activation function of f(x)=x
 class Activation:
     @staticmethod
@@ -36,7 +66,7 @@ class Layer:
         self.ninputs = None
         self.init_range = init_range
         self.weights = None  # dimensions=(ninputs, noutputs) will determine on model fit
-        self.biases = np.random.uniform(low=-init_range, high=init_range, size=(1, noutputs))
+        self.biases = np.zeros(shape=(1, self.noutputs), dtype=float)
         self.outputs = None
         self.errors = None
         # print('Class Layer was instantiated with {nout} outputs'.format(nout=noutputs))
@@ -47,6 +77,14 @@ class Layer:
         self.outputs = np.dot(x, self.weights) + self.biases
         self.outputs = self.activation.activate(self.outputs)
 
+    def glorot_uniform_initializer(self):
+        x = np.sqrt(6/(self.ninputs + self.noutputs))
+        self.weights = np.random.uniform(low=-x, high=x, size=(self.ninputs, self.noutputs))
+
+    def glorot_normal_initializer(self):
+        std = np.sqrt(2 / (self.ninputs + self.noutputs))
+        self.weights = np.random.normal(loc=0, scale=std, size=(self.ninputs, self.noutputs))
+
 
 # sequential model with L2-norm loss function and gradient-descent optimizer
 class Model:
@@ -55,21 +93,24 @@ class Model:
         self.nlayers = len(layers_list)
         self.noutputs = layers_list[self.nlayers - 1].noutputs
         self.ninputs = None
-        # self.nsamples = None
         self.batch_size = None
         self.nbatches = None
-        self.learning_rate = None
+        self.learning_rate = 0.01
         self.loss = None
         self.ntraining = None
         self.nvalidation = None
+        self.val_loss = None
+        self.early_stopping = False
+        self.optimizer = None
 
-    def fit(self, x=None, y=None, epochs=1, batch_size=None, learning_rate=0.01, validation_split=0.0):
+    def fit(self, x=None, y=None, epochs=1, batch_size=None, optimizer='adam', learning_rate=1.0,
+            validation_split=0.0, early_stopping=False, initializer='uniform'):
 
         # pre-processing
         x_training, y_training, x_validation, y_validation = self.__preprocess(x, y, validation_split, batch_size)
 
         # initialize net
-        self.__init_model(learning_rate)
+        self.__init_model(optimizer, learning_rate, early_stopping, initializer)
 
         # perform the fit
         for epoch in range(epochs):
@@ -85,10 +126,21 @@ class Model:
                 self.__back_propagate(targets)  # compute errors for each layer
                 self.__update_coefficients(inputs)
 
+            info_str = 'Epoch {ind:d}/{total:d} - training loss: {loss:.4f}'.format(ind=epoch + 1, total=epochs,
+                                                                                    loss=self.loss)
             # compute validation loss
+            if self.nvalidation > 0:
+                self.__forward_propagate(x_validation)
+                errors = self.layers[-1].outputs - y_validation
+                val_loss = np.sum(errors ** 2) / 2 / self.nvalidation
+                info_str += ' - validation loss: {loss:.4f}'.format(loss=val_loss)
 
-            # print current epoch data (epoch number, loss function..)
-            print('Epoch {ind:d}/{total:d} - loss: {loss:.4f}'.format(ind=epoch+1, total=epochs, loss=self.loss))
+            print(info_str)
+
+            if self.early_stopping:
+                if self.val_loss and val_loss > self.val_loss:
+                    break
+                self.val_loss = val_loss
 
     def __preprocess(self, x, y, validation_split, batch_size):
         self.ninputs = x.shape[1]
@@ -125,9 +177,13 @@ class Model:
 
         return x_training, y_training, x_validation, y_validation
 
-    def __init_model(self, learning_rate):
+    def __init_model(self, optimizer, learning_rate, early_stopping, initializer):
 
-        self.learning_rate = learning_rate
+        if not self.nvalidation and early_stopping:
+            print('validation_split must be greater than zero for applying early_stopping')
+            self.early_stopping = False
+        else:
+            self.early_stopping = early_stopping
 
         for i, layer in enumerate(self.layers):
 
@@ -139,9 +195,15 @@ class Model:
             print('layer {index}: {nin} inputs -> {nout} outputs'.format(index=i,
                                                                          nin=layer.ninputs,
                                                                          nout=layer.noutputs))
-            layer.weights = np.random.uniform(low=-layer.init_range,
-                                              high=layer.init_range,
-                                              size=(layer.ninputs, layer.noutputs))
+            if initializer.lower() == 'normal':
+                layer.glorot_normal_initializer()
+            else:
+                layer.glorot_uniform_initializer()  # default initializer
+
+            if optimizer.lower() == 'sgd':
+                layer.optimizer = GradientDescent(learning_rate)
+            else:
+                layer.optimizer = Adam(layer.ninputs, layer.noutputs, learning_rate=learning_rate)  # default optimizer
 
     def __forward_propagate(self, x):
         for i, layer in enumerate(self.layers):
@@ -167,9 +229,10 @@ class Model:
             else:
                 inputs = self.layers[i-1].outputs
             dloss_dw = (1/self.batch_size) * np.dot(inputs.transpose(), layer.errors)
-            layer.weights -= self.learning_rate * dloss_dw
             dloss_dbias = np.mean(layer.errors, axis=0)
-            layer.biases -= self.learning_rate * dloss_dbias
+            weights_update, biases_update = layer.optimizer.compute_step(dloss_dw, dloss_dbias)
+            layer.weights += weights_update
+            layer.biases += biases_update
 
     def predict(self, x=None):
         self.__forward_propagate(x)
