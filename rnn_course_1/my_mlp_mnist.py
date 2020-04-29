@@ -6,10 +6,6 @@ from matplotlib import pyplot as plt
 from util import get_normalized_data, y2indicator
 
 
-# To do:
-# (1) Early stopping
-# (2) Adam
-
 def glorot_uniform_initializer(ninputs, noutputs):
     x = np.sqrt(6 / (ninputs + noutputs))
     weights = np.random.uniform(low=-x, high=x, size=(ninputs, noutputs))
@@ -48,7 +44,8 @@ class ANN:
         self.layers = []
         self.params = []
 
-    def fit(self, inputs, targets, validation_data=None, early_stopping=False, lr=4e-4, reg=1e-2, epochs=15, batch_size=500):
+    def fit(self, inputs, targets, validation_data=None, early_stopping=False, lr=0.001, reg=1e-2,
+            epochs=15, batch_size=500):
         # construct the model
         if inputs.shape[0] != targets.shape[0]:
             print('error: inputs and targets have different number of samples')
@@ -79,7 +76,20 @@ class ANN:
         prediction = T.argmax(thY, axis=1)
 
         grads = T.grad(cost, self.params)
-        updates = [(p, p - lr * g) for p, g in zip(self.params, grads)]
+
+        # updates for gradient descent:
+        # updates = [(p, p - lr * g) for p, g in zip(self.params, grads)]
+
+        # updates for Adam:
+        beta_1 = 0.9
+        beta_2 = 0.99
+        epsilon = 1e-07
+        moment = [theano.shared(np.zeros(p.get_value().shape)) for p in self.params]
+        mean_square = [theano.shared(np.zeros(p.get_value().shape)) for p in self.params]
+        moment_update = [(m, beta_1 * m + (1-beta_1) * g) for m, g in zip(moment, grads)]
+        mean_square_update = [(s, beta_2 * s + (1 - beta_2) * g * g) for s, g in zip(mean_square, grads)]
+        weight_update = [(p, p - lr * m / (T.sqrt(s)+epsilon)) for p, m, s in zip(self.params, moment, mean_square)]
+        updates = moment_update + mean_square_update + weight_update
 
         # define theano functions
         train = theano.function(inputs=[thX, thT], outputs=cost, updates=updates)
