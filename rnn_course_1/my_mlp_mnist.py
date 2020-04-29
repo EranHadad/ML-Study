@@ -86,9 +86,14 @@ class ANN:
         epsilon = 1e-07
         moment = [theano.shared(np.zeros(p.get_value().shape)) for p in self.params]
         mean_square = [theano.shared(np.zeros(p.get_value().shape)) for p in self.params]
-        moment_update = [(m, beta_1 * m + (1-beta_1) * g) for m, g in zip(moment, grads)]
-        mean_square_update = [(s, beta_2 * s + (1 - beta_2) * g * g) for s, g in zip(mean_square, grads)]
-        weight_update = [(p, p - lr * m / (T.sqrt(s)+epsilon)) for p, m, s in zip(self.params, moment, mean_square)]
+
+        moment_new = [beta_1 * m + (1 - beta_1) * g for m, g in zip(moment, grads)]
+        mean_square_new = [beta_2 * s + (1 - beta_2) * g * g for s, g in zip(mean_square, grads)]
+
+        moment_update = [(m, mnew) for m, mnew in zip(moment, moment_new)]
+        mean_square_update = [(s, snew) for s, snew in zip(mean_square, mean_square_new)]
+        weight_update = [(p, p - lr * m / (T.sqrt(s)+epsilon)) for p, m, s in zip(self.params, moment_new,
+                                                                                  mean_square_new)]
         updates = moment_update + mean_square_update + weight_update
 
         # define theano functions
