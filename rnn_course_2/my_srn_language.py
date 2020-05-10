@@ -21,11 +21,6 @@ class SimpleRnn:
         self.Wo = None
         self.bo = None
         self.params = None
-        # self.thX = None
-        # self.thT = None
-        # self.Ei = None
-        # self.py_x = None
-        # self.prediction = None
         self.predict_op = None
         self.forward_op = None
 
@@ -190,11 +185,11 @@ class SimpleRnn:
     def generate(self, word2idx, n_lines=4):
         idx2word = {i: w for w, i in word2idx.items()}
         V = len(word2idx)
+        _, py_x = self.predict_op([0])
+        pi = py_x[-1, :]
         line_count = 0
         while line_count < n_lines:
             # generate first word
-            _, py_x = self.predict_op([0])
-            pi = py_x[-1, :]
             X = [np.random.choice(V, p=pi)]
             print(idx2word[X[0]], end=" ")
             P = V  # initial value just to enter the loop
@@ -247,6 +242,6 @@ def auto_complete(n_sentences):
 
 
 if __name__ == '__main__':
-    # train_phrases()
+    train_phrases()
     # generate_phrases()
     auto_complete(n_sentences=4)
