@@ -58,11 +58,10 @@ class SimpleRnn:
 
         py_x = y[:, 0, :]  # T x V fmatrix
         prediction = T.argmax(py_x, axis=1)  # T x 1 ivector
-        confidence = T.max(py_x, axis=1)  # T x 1 fvector
 
         self.predict_op = theano.function(
             inputs=[thX],
-            outputs=[prediction, confidence],
+            outputs=[prediction, py_x],
             allow_input_downcast=True,
         )
 
@@ -188,12 +187,14 @@ class SimpleRnn:
         rnn.set(We, Wx, h0, Wh, bh, Wo, bo, activation)
         return rnn
 
-    def generate(self, pi, word2idx, n_lines=4):
+    def generate(self, word2idx, n_lines=4):
         idx2word = {i: w for w, i in word2idx.items()}
-        V = len(pi)
+        V = len(word2idx)
         line_count = 0
         while line_count < n_lines:
             # generate first word
+            _, py_x = self.predict_op([0])
+            pi = py_x[-1, :]
             X = [np.random.choice(V, p=pi)]
             print(idx2word[X[0]], end=" ")
             P = V  # initial value just to enter the loop
@@ -233,11 +234,7 @@ def generate_phrases():
     sentences, word2idx = get_basic_phrases()
     rnn = SimpleRnn.load()
     V = len(word2idx)
-    pi = np.zeros(V)
-    for sentence in sentences:
-        pi[sentence[0]] += 1
-    pi /= pi.sum()
-    rnn.generate(pi, word2idx)
+    rnn.generate(word2idx)
 
 
 def auto_complete(n_sentences):
@@ -250,6 +247,6 @@ def auto_complete(n_sentences):
 
 
 if __name__ == '__main__':
-    train_phrases()
+    # train_phrases()
     # generate_phrases()
     auto_complete(n_sentences=4)
