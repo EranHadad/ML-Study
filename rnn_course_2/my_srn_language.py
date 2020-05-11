@@ -18,29 +18,37 @@ class SimpleRnn:
         self.h0 = None
         self.Wh = None
         self.bh = None
+        self.Wxz = None
+        self.Whz = None
+        self.bz = None
         self.Wo = None
         self.bo = None
         self.params = None
         self.predict_op = None
         self.forward_op = None
 
-    def set(self, We, Wx, h0, Wh, bh, Wo, bo, activation):
+    def set(self, We, Wx, h0, Wh, bh, Wxz, Whz, bz, Wo, bo, activation):
         self.activation = activation
         self.We = theano.shared(We, 'We')
         self.Wx = theano.shared(Wx, 'Wx')
         self.h0 = theano.shared(h0, 'h0')
         self.Wh = theano.shared(Wh, 'Wh')
         self.bh = theano.shared(bh, 'bh')
+        self.Wxz = theano.shared(Wxz, 'Wxz')
+        self.Whz = theano.shared(Whz, 'Whz')
+        self.bz = theano.shared(bz, 'bz')
         self.Wo = theano.shared(Wo, 'Wo')
         self.bo = theano.shared(bo, 'bo')
-        self.params = [self.We, self.Wx, self.h0, self.Wh, self.bh, self.Wo, self.bo]
+        self.params = [self.We, self.Wx, self.h0, self.Wh, self.bh, self.Wxz, self.Whz, self.bz, self.Wo, self.bo]
 
         thX = T.ivector('X')  # T x 1
         thT = T.ivector('T')  # T x 1
         Ei = self.We[thX]  # T x D fmatrix
 
         def recurrence(x_t, h_t1):
-            h_t = self.activation(x_t.dot(self.Wx) + h_t1.dot(self.Wh) + self.bh)
+            h_hat = self.activation(x_t.dot(self.Wx) + h_t1.dot(self.Wh) + self.bh)
+            z_t = T.nnet.sigmoid(x_t.dot(self.Wxz) + h_t1.dot(self.Whz) + self.bz)
+            h_t = (1 - z_t) * h_t1 + z_t * h_hat
             y_t = T.nnet.softmax(h_t.dot(self.Wo) + self.bo)
             return h_t, y_t
 
@@ -88,11 +96,14 @@ class SimpleRnn:
         h0 = np.zeros(M)
         Wh = SimpleRnn.glorot_uniform_initializer(M, M)
         bh = np.zeros(M)
+        Wxz = SimpleRnn.glorot_uniform_initializer(D, M)
+        Whz = SimpleRnn.glorot_uniform_initializer(M, M)
+        bz = np.zeros(M)
         Wo = SimpleRnn.glorot_uniform_initializer(M, V)
         bo = np.zeros(V)
 
         # construct forward propagation (prediction)
-        thX, thT, prediction, py_x = self.set(We, Wx, h0, Wh, bh, Wo, bo, activation)
+        thX, thT, prediction, py_x = self.set(We, Wx, h0, Wh, bh, Wxz, Whz, bz, Wo, bo, activation)
 
         # construct backward propagation (train)
         cost = -T.mean(T.log(py_x[T.arange(thT.shape[0]), thT]))
@@ -173,13 +184,16 @@ class SimpleRnn:
         h0 = model_info['h0']
         Wh = model_info['Wh']
         bh = model_info['bh']
+        Wxz = model_info['Wxz']
+        Whz = model_info['Whz']
+        bz = model_info['bz']
         Wo = model_info['Wo']
         bo = model_info['bo']
         activation = model_info['activation']
         V, D = We.shape
         _, M = Wx.shape
         rnn = SimpleRnn(n_units=M, word_length=D, vocabulary_size=V)
-        rnn.set(We, Wx, h0, Wh, bh, Wo, bo, activation)
+        rnn.set(We, Wx, h0, Wh, bh, Wxz, Whz, bz, Wo, bo, activation)
         return rnn
 
     def generate(self, word2idx, n_lines=4):
