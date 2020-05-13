@@ -46,9 +46,9 @@ class SimpleRnn:
         Ei = self.We[thX]  # T x D fmatrix
 
         def recurrence(x_t, h_t1):
-            h_hat = self.activation(x_t.dot(self.Wx) + h_t1.dot(self.Wh) + self.bh)
+            hhat_t = self.activation(x_t.dot(self.Wx) + h_t1.dot(self.Wh) + self.bh)
             z_t = T.nnet.sigmoid(x_t.dot(self.Wxz) + h_t1.dot(self.Whz) + self.bz)
-            h_t = (1 - z_t) * h_t1 + z_t * h_hat
+            h_t = (1 - z_t) * h_t1 + z_t * hhat_t
             y_t = T.nnet.softmax(h_t.dot(self.Wo) + self.bo)
             return h_t, y_t
 
@@ -256,6 +256,6 @@ def auto_complete(n_sentences):
 
 
 if __name__ == '__main__':
-    train_phrases()
+    # train_phrases()
     # generate_phrases()
     auto_complete(n_sentences=4)
