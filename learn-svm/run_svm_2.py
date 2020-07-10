@@ -8,7 +8,7 @@ from svm import *
 from svm_utils import *
 
 implementation = 'study'  # 'sklearn' # 'study'
-C_value = 1000  # 1e10
+C_value = 20  # 1e10
 
 # use seaborn plotting defaults
 sns.set()
@@ -36,7 +36,7 @@ p = p - y.flatten()
 # Prediction accuracy should be 1.0 for the training set
 print("Accuracy |", len(np.where(p == 0)[0]) / len(p), end="\n\n")
 
-print("support vectors:", model.support_vectors_, sep="\n")
+print("number of support vectors:", len(model.support_), sep="\n")
 
 plt.scatter(X[:, 0], X[:, 1], c=y, s=50, cmap='bwr')
 plot_svc_decision_function(model)

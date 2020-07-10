@@ -9,6 +9,7 @@ class SVM:
         self.num_of_epochs = num_of_epochs
         self.lr = lr
         self.C = C
+        self.support_ = None
         self.support_vectors_ = None
 
         # Add column vector of ones for computational convenience
@@ -32,27 +33,29 @@ class SVM:
         return distances
 
     def update_support_vectors(self, distances):
-        indices = distances < 0
-        self.support_vectors_ = self.X[indices, 1:]
+        self.support_ = np.where(distances < 0)[0]
+        self.support_vectors_ = self.X[self.support_, 1:]
 
     def get_cost_grads(self, X, w, y):
 
         distances = self.distances(w)
 
-        self.update_support_vectors(distances)
-
         # Get current cost
         L = 1 / 2 * np.dot(w, w) - self.C * np.sum(distances)
 
-        dw = np.zeros(len(w))
+        self.update_support_vectors(distances)
 
-        for ind, d in enumerate(distances):
-            if d == 0:  # if sample is not on the support vector
-                di = w  # (alpha * y[ind] * X[ind]) = 0
-            else:
-                # (alpha * y[ind] * X[ind]) = y[ind] * X[ind]
-                di = w - (self.C * y[ind] * X[ind])
-            dw += di
+        # constrain term
+        di = np.zeros(len(w))
+        for ind in self.support_:
+            di += y[ind] * X[ind]
+
+        # weight minimization term
+        dw = np.zeros(len(w))
+        dw[1:] = w[1:]  # skip first element (keep it zero, updating bias term differently)
+
+        dw -= self.C * di
+
         return L, dw / len(X)
 
     def fit(self):
