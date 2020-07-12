@@ -7,7 +7,8 @@ from sklearn.svm import SVC  # "Support vector classifier"
 from svm import *
 from svm_utils import *
 
-implementation = 'sklearn'  # 'sklearn' # 'study'
+implementation = 'study'  # 'sklearn' # 'study'
+kernel_type = 'rbf'  # 'linear' # 'rbf'
 C_value = 20  # 1e10
 
 # use seaborn plotting defaults
@@ -22,11 +23,11 @@ X, y = make_blobs(n_samples=50, centers=2, random_state=0, cluster_std=1.0)
 
 # train SVM classifier
 if implementation == 'sklearn':
-    model = SVC(kernel='rbf', C=C_value)  # 'linear'
+    model = SVC(kernel=kernel_type, C=C_value)
     model.fit(X, y)
 else:
     y[y == 0] = -1  # SVM expects lables to be equal to -1 for the "negative" class
-    model = SVM(X, y, num_of_epochs=10000, lr=1e-3, C=C_value)
+    model = SVM(X, y, kernel=kernel_type, num_of_epochs=10000, lr=1e-3, C=C_value)
     model.fit()
 
 # measure accuracy on training set
